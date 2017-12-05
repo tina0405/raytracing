@@ -1,7 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
-
+#ifdef ORG
 #include "math-toolkit.h"
+#else
+#include "math-toolkit_macro_unrolling.h"
+#endif
 #include "primitives.h"
 #include "raytracing.h"
 #include "idx_stack.h"

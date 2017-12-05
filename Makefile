@@ -1,8 +1,9 @@
 EXEC = raytracing
+EXEC_M_U = raytracing_m_u
 
 GIT_HOOKS := .git/hooks/pre-commit
 .PHONY: all
-all: $(GIT_HOOKS) $(EXEC)
+all: $(GIT_HOOKS) $(EXEC) $(EXEC_M_U)
 
 $(GIT_HOOKS):
 	@scripts/install-git-hooks
@@ -10,9 +11,9 @@ $(GIT_HOOKS):
 
 CC ?= gcc
 CFLAGS = \
-	-std=gnu99 -Wall -O0 -g
+	-std=gnu99 -Wall -O0 -g 
 LDFLAGS = \
-	-lm
+	-lm 
 
 ifeq ($(strip $(PROFILE)),1)
 PROF_FLAGS = -pg
@@ -24,12 +25,21 @@ OBJS := \
 	objects.o \
 	raytracing.o \
 	main.o
+OBJS_M_U := \
+        objects_m_u.o \
+        raytracing_m_u.o \
+        main_m_u.o
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c -o $@ $<
-
+	$(CC) $(CFLAGS) -c -DORG -o $@ $<
 
 $(EXEC): $(OBJS)
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+%_m_u.o: %.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(EXEC_M_U): $(OBJS_M_U)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 main.o: use-models.h
@@ -43,11 +53,23 @@ use-models.h: models.inc Makefile
 	        -e 's/^rectangular /append_rectangular/g' \
 	        -e 's/rectangular[0-9]/(\&&, \&rectangulars);/g' \
 	        -e 's/ = {//g' >> use-models.h
+cache-test: $(EXEC)
+	echo 3 | sudo tee /proc/sys/vm/drop_caches;
+	perf stat --repeat 10 \
+                -e cache-misses,cache-references,instructions,cycles \
+                sudo chrt -f 99 taskset -c 0 ./raytracing;
+	echo 3 | sudo tee /proc/sys/vm/drop_caches;
+	perf stat --repeat 10 \
+                -e cache-misses,cache-references,instructions,cycles \
+                sudo chrt -f 99 taskset -c 0 ./raytracing_m_u
 
 check: $(EXEC)
 	@./$(EXEC) && diff -u baseline.ppm out.ppm || (echo Fail; exit)
 	@echo "Verified OK"
+check_m_u: $(EXEC_M_U)
+	@./$(EXEC_M_U) && diff -u baseline.ppm out.ppm || (echo Fail; exit)
+	@echo "Verified OK"
 
 clean:
-	$(RM) $(EXEC) $(OBJS) use-models.h \
+	$(RM) $(EXEC_M_U) $(EXEC) $(OBJS_M_U) $(OBJS) use-models.h \
 		out.ppm gmon.out
