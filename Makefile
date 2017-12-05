@@ -1,9 +1,10 @@
 EXEC = raytracing
 EXEC_M_U = raytracing_m_u
+EXEC_SSE = raytracing_sse
 
 GIT_HOOKS := .git/hooks/pre-commit
 .PHONY: all
-all: $(GIT_HOOKS) $(EXEC) $(EXEC_M_U)
+all: $(GIT_HOOKS) $(EXEC) $(EXEC_M_U) $(EXEC_SSE)
 
 $(GIT_HOOKS):
 	@scripts/install-git-hooks
@@ -29,6 +30,10 @@ OBJS_M_U := \
         objects_m_u.o \
         raytracing_m_u.o \
         main_m_u.o
+OBJS_SSE := \
+        objects_sse.o \
+        raytracing_sse.o \
+        main_sse.o
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -DORG -o $@ $<
@@ -40,6 +45,11 @@ $(EXEC): $(OBJS)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(EXEC_M_U): $(OBJS_M_U)
+	$(CC) -o $@ $^ $(LDFLAGS)
+%_sse.o: %.c
+	$(CC) $(CFLAGS) -c -DSSE -o $@ $<
+
+$(EXEC_SSE): $(OBJS_SSE)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 main.o: use-models.h
@@ -61,7 +71,11 @@ cache-test: $(EXEC)
 	echo 3 | sudo tee /proc/sys/vm/drop_caches;
 	perf stat --repeat 10 \
                 -e cache-misses,cache-references,instructions,cycles \
-                sudo chrt -f 99 taskset -c 0 ./raytracing_m_u
+                sudo chrt -f 99 taskset -c 0 ./raytracing_m_u;
+	echo 3 | sudo tee /proc/sys/vm/drop_caches;
+	perf stat --repeat 10 \
+                -e cache-misses,cache-references,instructions,cycles \
+                sudo chrt -f 99 taskset -c 0 ./raytracing_sse
 
 check: $(EXEC)
 	@./$(EXEC) && diff -u baseline.ppm out.ppm || (echo Fail; exit)
@@ -69,7 +83,10 @@ check: $(EXEC)
 check_m_u: $(EXEC_M_U)
 	@./$(EXEC_M_U) && diff -u baseline.ppm out.ppm || (echo Fail; exit)
 	@echo "Verified OK"
+check_sse: $(EXEC_SSE)
+	@./$(EXEC_SSE) && diff -u baseline.ppm out.ppm || (echo Fail; exit)
+	@echo "Verified OK"
 
 clean:
-	$(RM) $(EXEC_M_U) $(EXEC) $(OBJS_M_U) $(OBJS) use-models.h \
+	$(RM) $(EXEC_M_U) $(SSE) $(EXEC) $(OBJS_M_U) $(OBJS_SSE) $(OBJS) use-models.h \
 		out.ppm gmon.out
