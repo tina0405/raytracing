@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #ifdef ORG
 #include "math-toolkit.h"
+#elif SSE
+#include "math-toolkit_sse.h"
+#elif AVX
+#include "math-toolkit_avx.h"
 #else
 #include "math-toolkit_macro_unrolling.h"
 #endif
