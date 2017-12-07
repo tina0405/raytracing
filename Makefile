@@ -99,6 +99,8 @@ check_sse: $(EXEC_SSE)
 check_avx: $(EXEC_AVX)
 	@./$(EXEC_AVX) && diff -u baseline.ppm out.ppm || (echo Fail; exit)
 	@echo "Verified OK"
+plot: output.txt
+	gnuplot scripts/runtime.gp
 clean:
 	$(RM) $(EXEC_M_U) $(AVX) $(OBJS_AVX) $(SSE) $(EXEC) $(OBJS_M_U) $(OBJS_SSE) $(OBJS) use-models.h \
 		out.ppm gmon.out
